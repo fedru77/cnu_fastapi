@@ -28,8 +28,8 @@ def get_item_by_id(item_id: int):
     raise HTTPException(status_code=404, detail='Item not found')
 
 @app.get('/items')
-def get_items_by_color(color: Optional[str] = None):
-    results = [item for item in items if item.get('color') == color]
-    if results: 
-        return {"data": results}
+def search_items(q: Optional[str] = None):
+    result = [item for item in items if q in item.get('data')]
+    if result:
+        return result
     raise HTTPException(status_code=404, detail='Item not found')
