@@ -1,0 +1,95 @@
+from fastapi import FastAPI, HTTPException, APIRouter, status
+from pydantic import BaseModel
+from typing import Optional, List
+
+app = FastAPI()
+items_router = APIRouter(prefix="/items", tags=["items"])
+
+class Item(BaseModel):
+    prisoner_number: int
+    name: str
+    age: int
+
+class ItemCreate(BaseModel):
+    name: str
+    age: int
+
+class ItemPut(BaseModel):
+    name: str
+    age: int
+
+class ItemPatch(BaseModel):
+    name: str = None
+    age: int = None
+
+
+items = [
+    {"prisoner_number": 1, "name": "jason", "age": 19},
+    {"prisoner_number": 2, "name": "chris", "age": 109},
+    {"prisoner_number": 3, "name": "god", "age": 1009},
+]
+
+def next_prisoner_number() -> int:
+    return (max((it["prisoner_number"] for it in items), default=0) + 1)
+
+@items_router.get("", response_model=List[Item])
+def list_items(q: Optional[str] = None):
+    if q is None or q == "":
+        return items
+    result = [it for it in items if q.lower() in it["name"].lower()]
+    if not result:
+        raise HTTPException(status_code=404, detail="Item not found")
+    return result
+
+
+@items_router.get("/{prisoner_number}", response_model=Item)
+def get_item(prisoner_number: int):
+    for it in items:
+        if it["prisoner_number"] == prisoner_number:
+            return it
+    raise HTTPException(status_code=404, detail="Item not found")
+
+
+@items_router.post("", response_model=Item, status_code=status.HTTP_201_CREATED)
+def create_item(payload: ItemCreate):
+    new_item = {
+        "prisoner_number": next_prisoner_number(),
+        "name": payload.name,
+        "age": payload.age,
+    }
+    items.append(new_item)
+    return new_item
+
+
+@items_router.put("/{prisoner_number}", response_model=Item)
+def update_item(prisoner_number: int, payload: ItemPut):
+    for it in items:
+        if it["prisoner_number"] == prisoner_number:
+            it["name"] = payload.name
+            it["age"] = payload.age
+            return it
+    raise HTTPException(status_code=404, detail="Item not found")
+
+
+@items_router.patch("/{prisoner_number}", response_model=Item)
+def modify_item(prisoner_number: int, payload: ItemPatch):
+    for it in items:
+        if it["prisoner_number"] == prisoner_number:
+            if payload.name is not None:
+                it["name"] = payload.name
+            if payload.age is not None:
+                it["age"] = payload.age
+            return it
+    raise HTTPException(status_code=404, detail="Item not found")
+
+
+@items_router.delete("/{prisoner_number}", status_code=status.HTTP_204_NO_CONTENT)
+def remove_item(prisoner_number: int):
+    for i in range(len(items)):
+        if items[i]["prisoner_number"] == prisoner_number:
+            items.pop(i)
+            return
+    raise HTTPException(status_code=404, detail="Item not found")
+
+
+app.include_router(items_router)
